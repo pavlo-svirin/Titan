@@ -23,6 +23,15 @@ get_resources(){
 }
 
 
+exec_element(){
+	COMMAND=$1
+	if [ -z "$COMMAND" ]; then 
+		exit 254
+	fi
+	eval "($COMMAND ; echo \$?>./fifo) &"
+}
+
+
 if [ -z $1 ]; then
 	echo No MPI rank specified. Exiting.
 	exit 255
@@ -71,11 +80,30 @@ for i in {1..20}; do
 	echo Rank $RANK: Job executable is: $CMD
 	echo Rank $RANK: Job directory is: $DIR
 	cd $DIR
-	eval $CMD
-	EXEC_RESULT=$?
+	mkfifo ./fifo
+	VALIDATION_RESULT=0
+	#eval $CMD
+	exec_element "$CMD"
+	JOB_PID=$!
+	get_resources "$JOB_PID" &
+	MONITOR_PID=$!
+	#EXEC_RESULT=$?
+	EXEC_RESULT=$(read ./fifo)
+	if [ "$EXEC_RESULT" -ne "0" ]; then
+		echo Failed
+	fi
+	kill $MONITOR_PID
+
+	# do validation
+	exec_element "$VALIDATION"
+	JOB_PID=$!
+	get_resources "$JOB_PID" &
+	MONITOR_PID=$!
+	VALIDATION_RESULT=$(read ./fifo)
+	kill $MONITOR_PID
 	cd -
 	#sqlite3 -init init.sql $DATABASE "UPDATE alien_jobs SET status='D', exec_code=$EXEC_RESULT, val_code=0 WHERE rank=$RANK"
-	jalien_sqlite_q $DATABASE "UPDATE alien_jobs SET status='D', exec_code=$EXEC_RESULT, val_code=0 WHERE rank=$RANK"
+	jalien_sqlite_q $DATABASE "UPDATE alien_jobs SET status='D', exec_code=$EXEC_RESULT, val_code=$VALIDATION_RESULT WHERE rank=$RANK"
 	echo ===================== Job finished ====================
 	#echo Rank $RANK now sleeping for $SLEEP
 	sleep 60
