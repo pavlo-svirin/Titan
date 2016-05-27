@@ -13,6 +13,21 @@ jalien_sqlite_q(){
 	done
 }
 
+get_resources(){
+	if [ -z $1 ]; then
+		echo No ALICE job PID specified for get_resources
+		exit -1
+	fi
+	ALICE_JOB_PID=$1
+	du -sb ; ps h -p $ALICE_JOB_PID -o cputime,vsz,rss,pcpu,time,pmem ; cat /proc/cpuinfo | grep "cpu MHz" | tail -n 1 | sed  -r 's/cpu MHz\s*:\s//'
+}
+
+
+if [ -z $1 ]; then
+	echo No MPI rank specified. Exiting.
+	exit 255
+fi
+
 RANK=$1
 echo My rank is: $RANK
 
@@ -45,6 +60,7 @@ for i in {1..20}; do
 	echo ===================== Starting new job for rank $RANK ===========
 	#echo $DATA
 	CMD=`echo $DATA | awk -F"|" '{print $2;}'`
+	VALIDATION=`echo $DATA | awk -F"|" '{print $3;}'`
 	DIR=`echo $DATA | awk -F"|" '{print $1;}'`
 	#SLEEP=`echo $DATA | awk -F"|" '{print $2;}'`
 	#echo $(date): Rank $RANK says: $MSG
