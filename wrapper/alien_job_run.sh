@@ -65,7 +65,7 @@ for i in {1..20}; do
 	DATA=`sqlite3 -init init.sql $DATABASE "SELECT job_folder,executable, validation, environment FROM alien_jobs WHERE rank=$RANK AND status='Q'"`
 	echo Query result for rank $RANK : $?
 	echo sqlite3 -init init.sql $DATABASE "SELECT job_folder,executable, validation, environment FROM alien_jobs WHERE rank=$RANK AND status='Q'"
-	[ -z $DATA ] &&  sleep 60 && continue
+	[ -z "$DATA" ] &&  sleep 60 && continue
 	echo ===================== Starting new job for rank $RANK ===========
 	#echo $DATA
 	CMD=`echo $DATA | awk -F"|" '{print $2;}'`
@@ -88,7 +88,8 @@ for i in {1..20}; do
 	get_resources "$JOB_PID" &
 	MONITOR_PID=$!
 	#EXEC_RESULT=$?
-	EXEC_RESULT=$(read ./fifo)
+	#EXEC_RESULT=$(read ./fifo)
+	read EXEC_RESULT < ./fifo
 	if [ "$EXEC_RESULT" -ne "0" ]; then
 		echo Failed
 	fi
@@ -99,11 +100,13 @@ for i in {1..20}; do
 	JOB_PID=$!
 	get_resources "$JOB_PID" &
 	MONITOR_PID=$!
-	VALIDATION_RESULT=$(read ./fifo)
+	#VALIDATION_RESULT=$(read ./fifo)
+	read VALIDATION_RESULT < ./fifo
 	kill $MONITOR_PID
 	cd -
 	#sqlite3 -init init.sql $DATABASE "UPDATE alien_jobs SET status='D', exec_code=$EXEC_RESULT, val_code=0 WHERE rank=$RANK"
-	jalien_sqlite_q $DATABASE "UPDATE alien_jobs SET status='D', exec_code=$EXEC_RESULT, val_code=$VALIDATION_RESULT WHERE rank=$RANK"
+	jalien_sqlite_q $DATABASE "UPDATE alien_jobs SET status='D', exec_code='$EXEC_RESULT', val_code='$VALIDATION_RESULT' WHERE rank=$RANK"
+	echo "UPDATE alien_jobs SET status='D', exec_code='$EXEC_RESULT', val_code='$VALIDATION_RESULT' WHERE rank=$RANK"
 	echo ===================== Job finished ====================
 	#echo Rank $RANK now sleeping for $SLEEP
 	sleep 60
