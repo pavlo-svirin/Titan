@@ -28,7 +28,7 @@ exec_element(){
 	if [ -z "$COMMAND" ]; then 
 		exit 254
 	fi
-	eval "($COMMAND ; echo \$?>./fifo) &"
+	eval "(. environment; $COMMAND ; echo \$?>./fifo) &"
 }
 
 
