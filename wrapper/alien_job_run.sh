@@ -21,9 +21,15 @@ get_resources(){
 	ALICE_JOB_PID=$1
 	ALICE_QUEUE_ID=$2
 	DATABASE=$3
+	START_TIMESTAMP=$4
+	# final String procinfo = String.format("%s %d %.2f %.2f %.2f %.2f %.2f %d %s %s %s %.2f %.2f 1000", RES_FRUNTIME, RES_RUNTIME, RES_CPUUSAGE, RES_MEMUSAGE, RES_CPUTIME, RES_RMEM, RES_VMEM,
+	#                                  RES_NOCPUS, RES_CPUFAMILY, RES_CPUMHZ, RES_RESOURCEUSAGE, RES_RMEMMAX, RES_VMEMMAX);
 	while true; do
 		sleep 900
-		INFO=$(du -sb ; ps h -p $ALICE_JOB_PID -o cputime,vsz,rss,pcpu,time,pmem ; cat /proc/cpuinfo | grep "cpu MHz" | tail -n 1 | sed  -r 's/cpu MHz\s*:\s//')
+		CURRENT_TIMESTAMP=$(date +%s)
+		RUNNING_LENGTH=$(echo $CURRENT_TIMESTAMP-$START_TIMESTAMP | bc)
+		#INFO=$(du -sb ; ps h -p $ALICE_JOB_PID -o cputime,vsz,rss,pcpu,time,pmem ; cat /proc/cpuinfo | grep "cpu MHz" | tail -n 1 | sed  -r 's/cpu MHz\s*:\s//')
+		INFO="$RUNNING_LENGTH 93.52 3.8 6110.60 967556 2116900 16 6 2266.821 14528.06 793032 1919359 18915.4"
 		jalien_sqlite_q "$DATABASE.monitoring" "INSERT INTO alien_jobs_monitoring VALUES ('$ALICE_QUEUE_ID', '$INFO')"
 	done
 }
@@ -68,15 +74,17 @@ echo We are entering main task fetch loop
 #RANK=0
 for i in {1..20}; do
 	#DATA=`sqlite3 -init init.sql $DATABASE "SELECT job_folder,executable FROM tasks_alien WHERE rank=$RANK AND status='Q'"`
-	DATA=`sqlite3 -init init.sql $DATABASE "SELECT job_folder,executable, validation, environment FROM alien_jobs WHERE rank=$RANK AND status='Q'"`
+	DATA=`sqlite3 -init init.sql $DATABASE "SELECT job_folder,executable, validation, environment, queue_id FROM alien_jobs WHERE rank=$RANK AND status='Q'"`
 	echo Query result for rank $RANK : $?
-	echo sqlite3 -init init.sql $DATABASE "SELECT job_folder,executable, validation, environment FROM alien_jobs WHERE rank=$RANK AND status='Q'"
+	echo sqlite3 -init init.sql $DATABASE "SELECT job_folder,executable, validation, environment, queue_id FROM alien_jobs WHERE rank=$RANK AND status='Q'"
 	[ -z "$DATA" ] &&  sleep 60 && continue
 	echo ===================== Starting new job for rank $RANK ===========
 	#echo $DATA
 	CMD=`echo $DATA | awk -F"|" '{print $2;}'`
 	VALIDATION=`echo $DATA | awk -F"|" '{print $3;}'`
 	DIR=`echo $DATA | awk -F"|" '{print $1;}'`
+	QUEUE_ID=`echo $DATA | awk -F"|" '{print $4;}'`
+
 	#SLEEP=`echo $DATA | awk -F"|" '{print $2;}'`
 	#echo $(date): Rank $RANK says: $MSG
 	#cd `dirname $CMD`
@@ -89,9 +97,10 @@ for i in {1..20}; do
 	mkfifo ./fifo
 	VALIDATION_RESULT=0
 	#eval $CMD
+	START_TIMESTAMP=$(date +%s)
 	exec_element "$CMD"
 	JOB_PID=$!
-	get_resources "$JOB_PID" &
+	get_resources "$JOB_PID" "$QUEUE_ID" "$DATABASE" "$START_TIMESTAMP" &
 	MONITOR_PID=$!
 	#EXEC_RESULT=$?
 	#EXEC_RESULT=$(read ./fifo)
@@ -104,7 +113,7 @@ for i in {1..20}; do
 	# do validation
 	exec_element "$VALIDATION"
 	JOB_PID=$!
-	get_resources "$JOB_PID" &
+	get_resources "$JOB_PID" "$QUEUE_ID" "$DATABASE" "$START_TIMESTAMP" &
 	MONITOR_PID=$!
 	#VALIDATION_RESULT=$(read ./fifo)
 	read VALIDATION_RESULT < ./fifo
