@@ -19,7 +19,13 @@ get_resources(){
 		exit -1
 	fi
 	ALICE_JOB_PID=$1
-	du -sb ; ps h -p $ALICE_JOB_PID -o cputime,vsz,rss,pcpu,time,pmem ; cat /proc/cpuinfo | grep "cpu MHz" | tail -n 1 | sed  -r 's/cpu MHz\s*:\s//'
+	ALICE_QUEUE_ID=$2
+	DATABASE=$3
+	while true; do
+		sleep 900
+		INFO=$(du -sb ; ps h -p $ALICE_JOB_PID -o cputime,vsz,rss,pcpu,time,pmem ; cat /proc/cpuinfo | grep "cpu MHz" | tail -n 1 | sed  -r 's/cpu MHz\s*:\s//')
+		jalien_sqlite_q "$DATABASE.monitoring" "INSERT INTO alien_jobs_monitoring VALUES ('$ALICE_QUEUE_ID', '$INFO')"
+	done
 }
 
 
