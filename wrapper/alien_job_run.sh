@@ -20,17 +20,20 @@ get_resources(){
 	fi
 	ALICE_JOB_PID=$1
 	ALICE_QUEUE_ID=$2
-	DATABASE=$3
+	DATABASE="$3.monitoring"
 	START_TIMESTAMP=$4
 	# final String procinfo = String.format("%s %d %.2f %.2f %.2f %.2f %.2f %d %s %s %s %.2f %.2f 1000", RES_FRUNTIME, RES_RUNTIME, RES_CPUUSAGE, RES_MEMUSAGE, RES_CPUTIME, RES_RMEM, RES_VMEM,
 	#                                  RES_NOCPUS, RES_CPUFAMILY, RES_CPUMHZ, RES_RESOURCEUSAGE, RES_RMEMMAX, RES_VMEMMAX);
 	while true; do
-		sleep 900
+		sleep 600
 		CURRENT_TIMESTAMP=$(date +%s)
 		RUNNING_LENGTH=$(echo $CURRENT_TIMESTAMP-$START_TIMESTAMP | bc)
 		#INFO=$(du -sb ; ps h -p $ALICE_JOB_PID -o cputime,vsz,rss,pcpu,time,pmem ; cat /proc/cpuinfo | grep "cpu MHz" | tail -n 1 | sed  -r 's/cpu MHz\s*:\s//')
 		INFO="$RUNNING_LENGTH 93.52 3.8 6110.60 967556 2116900 16 6 2266.821 14528.06 793032 1919359 18915.4"
-		jalien_sqlite_q "$DATABASE.monitoring" "INSERT INTO alien_jobs_monitoring VALUES ('$ALICE_QUEUE_ID', '$INFO')"
+		echo Consumption for ALICE_JOB_ID, pid:  $ALICE_JOB_PID : $INFO
+		echo $INFO >> resources
+		echo jalien_sqlite_q "$DATABASE" "INSERT INTO alien_jobs_monitoring VALUES ('$ALICE_QUEUE_ID', '$INFO')"
+		jalien_sqlite_q "$DATABASE" "INSERT INTO alien_jobs_monitoring VALUES ('$ALICE_QUEUE_ID', '$INFO')"
 	done
 }
 
@@ -40,7 +43,7 @@ exec_element(){
 	if [ -z "$COMMAND" ]; then 
 		exit 254
 	fi
-	eval "(. environment; $COMMAND ; echo \$?>./fifo) &"
+	eval "(. environment; $COMMAND 1>>stdout 2>>stderr ; echo \$?>./fifo) &"
 }
 
 
@@ -83,7 +86,7 @@ for i in {1..20}; do
 	CMD=`echo $DATA | awk -F"|" '{print $2;}'`
 	VALIDATION=`echo $DATA | awk -F"|" '{print $3;}'`
 	DIR=`echo $DATA | awk -F"|" '{print $1;}'`
-	QUEUE_ID=`echo $DATA | awk -F"|" '{print $4;}'`
+	QUEUE_ID=`echo $DATA | awk -F"|" '{print $5;}'`
 
 	#SLEEP=`echo $DATA | awk -F"|" '{print $2;}'`
 	#echo $(date): Rank $RANK says: $MSG
@@ -111,13 +114,15 @@ for i in {1..20}; do
 	kill $MONITOR_PID
 
 	# do validation
-	exec_element "$VALIDATION"
-	JOB_PID=$!
-	get_resources "$JOB_PID" "$QUEUE_ID" "$DATABASE" "$START_TIMESTAMP" &
-	MONITOR_PID=$!
-	#VALIDATION_RESULT=$(read ./fifo)
-	read VALIDATION_RESULT < ./fifo
-	kill $MONITOR_PID
+	if [ ! -z $VALIDATION ]; then
+		exec_element "$VALIDATION"
+		JOB_PID=$!
+		get_resources "$JOB_PID" "$QUEUE_ID" "$DATABASE" "$START_TIMESTAMP" &
+		MONITOR_PID=$!
+		#VALIDATION_RESULT=$(read ./fifo)
+		read VALIDATION_RESULT < ./fifo
+		kill $MONITOR_PID
+	fi
 	cd -
 	#sqlite3 -init init.sql $DATABASE "UPDATE alien_jobs SET status='D', exec_code=$EXEC_RESULT, val_code=0 WHERE rank=$RANK"
 	jalien_sqlite_q $DATABASE "UPDATE alien_jobs SET status='D', exec_code='$EXEC_RESULT', val_code='$VALIDATION_RESULT' WHERE rank=$RANK"
