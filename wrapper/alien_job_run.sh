@@ -22,14 +22,21 @@ get_resources(){
 	ALICE_QUEUE_ID=$2
 	DATABASE="$3.monitoring"
 	START_TIMESTAMP=$4
+
+	CPUINFO=$(grep MHz /proc/cpuinfo | uniq -c)
+	CPU_COUNT=$(echo $CPUINFO | awk '{print $1;}')
+	CPU_FREQ=$(echo $CPUINFO | awk '{print $5;}' | sed  -r 's/cpu MHz\s*:\s//')
+	CPU_FAMILY=$(grep family /proc/cpuinfo | tail -n 1 | awk '{print $4;}')
+
 	# final String procinfo = String.format("%s %d %.2f %.2f %.2f %.2f %.2f %d %s %s %s %.2f %.2f 1000", RES_FRUNTIME, RES_RUNTIME, RES_CPUUSAGE, RES_MEMUSAGE, RES_CPUTIME, RES_RMEM, RES_VMEM,
 	#                                  RES_NOCPUS, RES_CPUFAMILY, RES_CPUMHZ, RES_RESOURCEUSAGE, RES_RMEMMAX, RES_VMEMMAX);
 	while true; do
 		sleep 600
 		CURRENT_TIMESTAMP=$(date +%s)
 		RUNNING_LENGTH=$(echo $CURRENT_TIMESTAMP-$START_TIMESTAMP | bc)
-		#INFO=$(du -sb ; ps h -p $ALICE_JOB_PID -o cputime,vsz,rss,pcpu,time,pmem ; cat /proc/cpuinfo | grep "cpu MHz" | tail -n 1 | sed  -r 's/cpu MHz\s*:\s//')
-		INFO="$RUNNING_LENGTH 93.52 3.8 6110.60 967556 2116900 16 6 2266.821 14528.06 793032 1919359 18915.4"
+		RUNLENGTH_STR=$(printf "%02d:%02d:%02d" $(echo $RUNNING_LENGTH/3600 | bc) $(echo $RUNNING_LENGTH/60%60 | bc) $(echo $RUNNING_LENGTH%60 | bc))
+		INFO=$(echo -n "$RUNLENGTH_STR $RUNNING_LENGTH "; du -sb ; ps h -p $ALICE_JOB_PID -o cputime,vsz,rss,pcpu,time,pmem ; echo -n " $CPU_FREQ 1000" )
+		#INFO="$RUNNING_LENGTH 93.52 3.8 6110.60 967556 2116900 16 6 2266.821 14528.06 793032 1919359 18915.4"
 		echo Consumption for ALICE_JOB_ID, pid:  $ALICE_JOB_PID : $INFO
 		echo $INFO >> resources
 		echo jalien_sqlite_q "$DATABASE" "INSERT INTO alien_jobs_monitoring VALUES ('$ALICE_QUEUE_ID', '$INFO')"
