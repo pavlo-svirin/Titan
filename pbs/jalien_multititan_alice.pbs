@@ -20,7 +20,7 @@ MAX_RETRIES=15
 
 mkdir -p $BUNCH_WORKDIR && cd $_
 
-sqlite3 $JOBAGENT_DB_NAME "CREATE TABLE jobagent_info (ttl INT NOT NULL, cores INT NOT NULL); INSERT INTO jobagent_info SELECT 6*60*60, 126*16;"
+sqlite3 $JOBAGENT_DB_NAME "CREATE TABLE jobagent_info (ttl INT NOT NULL, cores INT NOT NULL, started INT); INSERT INTO jobagent_info SELECT 6*60*60, 126*16, strftime( '%s', datetime('now','localtime'));"
 
 sleep 30
 
