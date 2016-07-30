@@ -1,0 +1,42 @@
+#!/bin/bash
+#    Begin PBS directives
+#PBS -A CSC108
+#PBS -N jalien_titan
+#PBS -j oe
+#PBS -l walltime=06:00:00,nodes=126
+#PBS -l gres=atlas1
+#    End PBS directives and begin shell commands
+
+cd $MEMBERWORK/csc108
+
+module load cray-mpich/7.2.5
+module load python/3.4.3
+module load python_mpi4py/1.3.1
+
+export JOBAGENT_DB_NAME=jobagent.db
+export SCRIPTS_DIR=$PROJWORK/ALICE_TITAN_SCRIPTS
+export BUNCH_WORKDIR=$PWD/workdir/$PBS_JOBID
+MAX_RETRIES=15
+
+mkdir -p $BUNCH_WORKDIR && cd $_
+
+sqlite3 $JOBAGENT_DB_NAME "CREATE TABLE jobagent_info (ttl INT NOT NULL, cores INT NOT NULL); INSERT INTO jobagent_info SELECT 6*60*60, 126*16;"
+
+sleep 30
+
+for i in `seq 1 "$MAX_RETRIES"`; do
+	if [ ! -z $(sqlite3 $JOBAGENT_DB_NAME "SELECT name FROM sqlite_master WHERE type='table' AND name='alien_jobs';") ] \
+			&& [ -f "$JOBAGENT_DB_NAME.monitoring" ] \
+			&& [ ! -z $(sqlite3 "$JOBAGENT_DB_NAME.monitoring" "SELECT name FROM sqlite_master WHERE type='table' AND name='alien_jobs_monitoring'") ]; then
+		break
+	fi
+	if [ "$i" -eq "$MAX_RETRIES" ]; then
+		exit 1
+	fi
+	sleep 60
+done
+
+aprun -n 16 $SCRIPTS_DIR/get_rank_and_exec_job.py "$BUNCH_WORKDIR"
+
+cd ..
+rm -rf $BUNCH_WORKDIR 
