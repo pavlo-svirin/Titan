@@ -66,30 +66,37 @@ exec_element(){
 	eval "(. environment; $COMMAND 1>>stdout 2>>stderr ; echo \$?>./fifo) &"
 }
 
-
 if [ -z $1 ]; then
 	echo No MPI rank specified. Exiting.
 	exit 255
 fi
 
 RANK=$1
+WORKDIR=$2
 echo My rank is: $RANK
 
-DBLINKFILE=/lustre/atlas/scratch/psvirin/csc108/workdir/database.lnk
-DATABASE=
+# cd to working dir
+# cd $WORKDIR/$PBS_JOBID
+
+# sqlite3 
+
+# DBLINKFILE=/lustre/atlas/scratch/psvirin/csc108/workdir/database.lnk
+cd $WORKDIR
+DATABASE=$PWD/jobagent.db
 
 # try 10 times for exising database
-for i in `seq 1 10`; do
-	echo Doing $i th check for rank $RANK
-	echo DBLINKFILE is $DBLINKFILE
-	[ ! -f $DBLINKFILE ] && [ $i -eq 10 ] && echo No dblink file found && exit 2
-    	[ ! -f $DBLINKFILE ] && (echo No DBLINKFILE, sleeping ;  sleep 60 ; continue)
-	DATABASE=`cat $DBLINKFILE | sed s/jdbc:sqlite://`
-	echo Database is: $DATABASE
-	#[ ! -z $DATABASE ] && break
-	[ ! -f $DATABASE ] && [ $i -eq 10 ] && echo No database found && exit 1
-	[ ! -f $DATABASE ] && sleep 90
-done
+# for i in `seq 1 10`; do
+	# echo Doing $i th check for rank $RANK
+	# echo DBLINKFILE is $DBLINKFILE
+	# [ ! -f $DBLINKFILE ] && [ $i -eq 10 ] && echo No dblink file found && exit 2
+    	# [ ! -f $DBLINKFILE ] && (echo No DBLINKFILE, sleeping ;  sleep 60 ; continue)
+	# DATABASE=`cat $DBLINKFILE | sed s/jdbc:sqlite://`
+	# echo Database is: $DATABASE
+	# #[ ! -z $DATABASE ] && break
+	# [ ! -f $DATABASE ] && [ $i -eq 10 ] && echo No database found && exit 1
+	# [ ! -f $DATABASE ] && sleep 90
+# done
+
 
 echo We are entering main task fetch loop
 
