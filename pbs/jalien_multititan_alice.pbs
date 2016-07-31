@@ -3,7 +3,7 @@
 #PBS -A CSC108
 #PBS -N jalien_titan
 #PBS -j oe
-#PBS -l walltime=06:00:00,nodes=126
+#PBS -l walltime=01:00:00,nodes=1
 #PBS -l gres=atlas1
 #    End PBS directives and begin shell commands
 
@@ -14,9 +14,9 @@ module load python/3.4.3
 module load python_mpi4py/1.3.1
 
 export JOBAGENT_DB_NAME=jobagent.db
-export SCRIPTS_DIR=$PROJWORK/ALICE_TITAN_SCRIPTS
+export SCRIPTS_DIR=$PROJWORK/csc108/psvirin/ALICE_TITAN_SCRIPTS
 export BUNCH_WORKDIR=$PWD/workdir/$PBS_JOBID
-MAX_RETRIES=15
+MAX_RETRIES=5
 
 mkdir -p $BUNCH_WORKDIR && cd $_
 
@@ -25,12 +25,14 @@ sqlite3 $JOBAGENT_DB_NAME "CREATE TABLE jobagent_info (ttl INT NOT NULL, cores I
 sleep 30
 
 for i in `seq 1 "$MAX_RETRIES"`; do
-	if [ ! -z $(sqlite3 $JOBAGENT_DB_NAME "SELECT name FROM sqlite_master WHERE type='table' AND name='alien_jobs';") ] \
+	if [ $? -eq "0" ] && [ ! -z $(sqlite3 $JOBAGENT_DB_NAME "SELECT name FROM sqlite_master WHERE type='table' AND name='alien_jobs';") ] \
 			&& [ -f "$JOBAGENT_DB_NAME.monitoring" ] \
 			&& [ ! -z $(sqlite3 "$JOBAGENT_DB_NAME.monitoring" "SELECT name FROM sqlite_master WHERE type='table' AND name='alien_jobs_monitoring'") ]; then
 		break
 	fi
 	if [ "$i" -eq "$MAX_RETRIES" ]; then
+		cd ..
+		rm -rf $BUNCH_WORKDIR 
 		exit 1
 	fi
 	sleep 60
